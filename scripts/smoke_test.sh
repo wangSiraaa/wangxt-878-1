@@ -105,13 +105,13 @@ assert "创建板箱 SMOKE-ULD-001 成功 (ID=$ULD_ID)" "[ -n '$ULD_ID' ]"
 
 # Step 1b: 创建三个货邮单 (通过安检)
 WB1_RESP=$(http_post "$BACKEND_URL/waybill" \
-    '{"waybillNo":"SMOKE-WB-001","flightId":1,"shipper":"测试","consignee":"测试","pieces":10,"weight":600,"volume":1.0,"goods_description":"测试A","dangerousFlag":false}' \
+    '{"waybillNo":"SMOKE-WB-001","flightId":1,"shipper":"测试","consignee":"测试","pieces":10,"weight":600,"volume":1.0,"goodsDescription":"测试A","dangerousFlag":false}' \
     "$OP_TOKEN")
 WB1_ID=$(get_json_field "$WB1_RESP" "data" | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
 assert "创建货邮单 SMOKE-WB-001 (600kg) 成功 (ID=$WB1_ID)" "[ -n '$WB1_ID' ]"
 
 WB2_RESP=$(http_post "$BACKEND_URL/waybill" \
-    '{"waybillNo":"SMOKE-WB-002","flightId":1,"shipper":"测试","consignee":"测试","pieces":10,"weight":500,"volume":1.0,"goods_description":"测试B","dangerousFlag":false}' \
+    '{"waybillNo":"SMOKE-WB-002","flightId":1,"shipper":"测试","consignee":"测试","pieces":10,"weight":500,"volume":1.0,"goodsDescription":"测试B","dangerousFlag":false}' \
     "$OP_TOKEN")
 WB2_ID=$(get_json_field "$WB2_RESP" "data" | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
 assert "创建货邮单 SMOKE-WB-002 (500kg) 成功 (ID=$WB2_ID)" "[ -n '$WB2_ID' ]"
@@ -144,7 +144,7 @@ echo -e "${YELLOW}[场景2] 危险品未安检装板失败${NC}"
 echo "  准备: 创建一个标记为危险品的货邮单（不进行安检）"
 
 WB_DANGER_RESP=$(http_post "$BACKEND_URL/waybill" \
-    '{"waybillNo":"SMOKE-WB-DANGER-001","flightId":1,"shipper":"测试","consignee":"测试","pieces":5,"weight":200,"volume":0.5,"goods_description":"测试危险品","dangerousFlag":true,"dangerousLevel":"CLASS 3"}' \
+    '{"waybillNo":"SMOKE-WB-DANGER-001","flightId":1,"shipper":"测试","consignee":"测试","pieces":5,"weight":200,"volume":0.5,"goodsDescription":"测试危险品","dangerousFlag":true,"dangerousLevel":"CLASS 3"}' \
     "$OP_TOKEN")
 WB_DANGER_ID=$(get_json_field "$WB_DANGER_RESP" "data" | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
 assert "创建危险品货邮单 SMOKE-WB-DANGER-001 成功 (ID=$WB_DANGER_ID)" "[ -n '$WB_DANGER_ID' ]"
@@ -187,7 +187,7 @@ ULD_LOCK_ID=$(get_json_field "$ULD_LOCK_RESP" "data" | grep -o '"id":[0-9]*' | h
 assert "创建板箱 SMOKE-ULD-LOCK-001 成功 (ID=$ULD_LOCK_ID)" "[ -n '$ULD_LOCK_ID' ]"
 
 WB_LOCK_RESP=$(http_post "$BACKEND_URL/waybill" \
-    '{"waybillNo":"SMOKE-WB-LOCK-001","flightId":1,"shipper":"测试","consignee":"测试","pieces":20,"weight":800,"volume":2.0,"goods_description":"锁定测试货","dangerousFlag":false}' \
+    '{"waybillNo":"SMOKE-WB-LOCK-001","flightId":1,"shipper":"测试","consignee":"测试","pieces":20,"weight":800,"volume":2.0,"goodsDescription":"锁定测试货","dangerousFlag":false}' \
     "$OP_TOKEN")
 WB_LOCK_ID=$(get_json_field "$WB_LOCK_RESP" "data" | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
 assert "创建货邮单 SMOKE-WB-LOCK-001 (800kg) 成功 (ID=$WB_LOCK_ID)" "[ -n '$WB_LOCK_ID' ]"
@@ -211,7 +211,7 @@ assert "复核通过 (code=$PASS_CODE)" "[ '$PASS_CODE' = '200' ]"
 echo "  关键测试: 复核通过后，普通操作员尝试修改货邮单..."
 
 UPDATE_RESP=$(http_put "$BACKEND_URL/waybill/$WB_LOCK_ID" \
-    '{"waybillNo":"SMOKE-WB-LOCK-001","flightId":1,"pieces":99,"weight":99999,"volume":9,"goods_description":"尝试篡改","dangerousFlag":false}' \
+    '{"waybillNo":"SMOKE-WB-LOCK-001","flightId":1,"pieces":99,"weight":99999,"volume":9,"goodsDescription":"尝试篡改","dangerousFlag":false}' \
     "$OP_TOKEN")
 UPDATE_CODE=$(get_json_field "$UPDATE_RESP" code)
 UPDATE_MSG=$(echo "$UPDATE_RESP" | grep -o '"message":"[^"]*"' | cut -d'"' -f4)

@@ -1,7 +1,6 @@
 package com.cargo.uld.aspect;
 
 import com.cargo.uld.annotation.AuditLog;
-import com.cargo.uld.entity.AuditLog;
 import com.cargo.uld.repository.AuditLogRepository;
 import com.cargo.uld.security.SecurityUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -57,7 +56,7 @@ public class AuditAspect {
 
             Long targetId = extractTargetId(joinPoint);
 
-            AuditLog auditLog = new AuditLog();
+            com.cargo.uld.entity.AuditLog auditLog = new com.cargo.uld.entity.AuditLog();
             auditLog.setUserId(SecurityUtil.getCurrentUserId());
             auditLog.setUsername(SecurityUtil.getCurrentUsername());
             auditLog.setOperation(operation);

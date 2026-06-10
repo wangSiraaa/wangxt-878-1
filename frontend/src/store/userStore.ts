@@ -13,9 +13,15 @@ export const useUserStore = create<UserState>((set) => ({
   token: null,
   user: null,
   setAuth: (data: LoginResponse) => {
+    const user: User = {
+      id: data.userId,
+      username: data.username,
+      realName: data.realName,
+      role: data.role
+    }
     localStorage.setItem('token', data.token)
-    localStorage.setItem('user', JSON.stringify(data.user))
-    set({ token: data.token, user: data.user })
+    localStorage.setItem('user', JSON.stringify(user))
+    set({ token: data.token, user })
   },
   logout: () => {
     localStorage.removeItem('token')

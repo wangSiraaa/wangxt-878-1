@@ -60,9 +60,9 @@ function SecurityCheck() {
         page,
         size: pageSize,
         waybillNo: searchWaybillNo || undefined,
-        status: 'CREATED'
+        securityStatus: 'PENDING'
       })
-      setData(res.data.records || [])
+      setData(res.data.list || [])
       setTotal(res.data.total || 0)
     } finally {
       setLoading(false)
@@ -98,11 +98,11 @@ function SecurityCheck() {
       const res = await securityCheck(remarkModal.record.id, {
         status:
           remarkModal.action === 'PASS'
-            ? 'SECURITY_PASSED'
-            : 'SECURITY_REJECTED',
+            ? 'PASSED'
+            : 'REJECTED',
         remark: values.remark
       })
-      if (res.success || res.code === 200) {
+      if (res.code === 200) {
         message.success(
           remarkModal.action === 'PASS' ? '安检通过成功' : '安检拒绝成功'
         )
@@ -136,13 +136,6 @@ function SecurityCheck() {
       fixed: 'left' as const,
       render: (t: string) => <strong>{t}</strong>
     },
-    {
-      title: '类型',
-      dataIndex: 'type',
-      key: 'type',
-      width: 80,
-      render: (t: string) => (t === 'CARGO' ? '货物' : '邮件')
-    },
     { title: '托运人', dataIndex: 'shipper', key: 'shipper', width: 120 },
     { title: '收货人', dataIndex: 'consignee', key: 'consignee', width: 120 },
     { title: '重量(kg)', dataIndex: 'weight', key: 'weight', width: 100 },
@@ -150,15 +143,14 @@ function SecurityCheck() {
     { title: '关联航班', dataIndex: 'flightNo', key: 'flightNo', width: 120 },
     {
       title: '状态',
-      dataIndex: 'status',
       key: 'status',
       width: 100,
       render: () => <Tag color="orange">待安检</Tag>
     },
     {
       title: '创建时间',
-      dataIndex: 'createTime',
-      key: 'createTime',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
       width: 170,
       render: (t: string) => dayjs(t).format('YYYY-MM-DD HH:mm:ss')
     },
@@ -289,9 +281,6 @@ function SecurityCheck() {
               <Descriptions.Item label="货邮单号">
                 <strong>{actionRecord.waybillNo}</strong>
               </Descriptions.Item>
-              <Descriptions.Item label="类型">
-                {actionRecord.type === 'CARGO' ? '货物' : '邮件'}
-              </Descriptions.Item>
               <Descriptions.Item label="重量/件数">
                 {actionRecord.weight} kg / {actionRecord.pieces} 件
               </Descriptions.Item>
@@ -338,26 +327,35 @@ function SecurityCheck() {
         destroyOnClose
       >
         {r && (
-          <Descriptions bordered column={2} size="small" loading={detailLoading}>
+          <Descriptions bordered column={2} size="small">
             <Descriptions.Item label="货邮单号" span={2}>
               <strong style={{ fontSize: 16 }}>{r.waybillNo}</strong>
             </Descriptions.Item>
-            <Descriptions.Item label="类型">
-              {r.type === 'CARGO' ? '货物' : '邮件'}
-            </Descriptions.Item>
             <Descriptions.Item label="状态">
               <Tag color="orange">待安检</Tag>
+            </Descriptions.Item>
+            <Descriptions.Item label="关联板箱">
+              {r.currentUldCode || '-'}
             </Descriptions.Item>
             <Descriptions.Item label="托运人">{r.shipper}</Descriptions.Item>
             <Descriptions.Item label="收货人">{r.consignee}</Descriptions.Item>
             <Descriptions.Item label="重量(kg)">{r.weight}</Descriptions.Item>
             <Descriptions.Item label="件数">{r.pieces}</Descriptions.Item>
             <Descriptions.Item label="关联航班">{r.flightNo || '-'}</Descriptions.Item>
-            <Descriptions.Item label="创建时间">
-              {dayjs(r.createTime).format('YYYY-MM-DD HH:mm:ss')}
+            <Descriptions.Item label="安检人" span={2}>
+              {r.inspectedByName || '-'}
+              {r.inspectedAt
+                ? ` (${dayjs(r.inspectedAt).format('YYYY-MM-DD HH:mm')})`
+                : ''}
+            </Descriptions.Item>
+            <Descriptions.Item label="安检备注" span={2}>
+              {r.securityRemark || '-'}
+            </Descriptions.Item>
+            <Descriptions.Item label="创建时间" span={2}>
+              {dayjs(r.createdAt).format('YYYY-MM-DD HH:mm:ss')}
             </Descriptions.Item>
             <Descriptions.Item label="备注" span={2}>
-              {r.remark || '-'}
+              {r.securityRemark || '-'}
             </Descriptions.Item>
           </Descriptions>
         )}

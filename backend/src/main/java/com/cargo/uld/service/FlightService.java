@@ -41,15 +41,15 @@ public class FlightService {
 
     public PageResult<FlightVO> queryPage(String flightNo, String status, Pageable pageable) {
         Page<Flight> page;
-        if (StringUtils.hasText(flightNo)) {
-            flightNo = "%" + flightNo + "%";
+        final String likeFlightNo = StringUtils.hasText(flightNo) ? "%" + flightNo + "%" : null;
+        if (likeFlightNo != null) {
             if (StringUtils.hasText(status)) {
                 page = flightRepository.findAll((root, query, cb) -> cb.and(
-                        cb.like(root.get("flightNo"), flightNo),
+                        cb.like(root.get("flightNo"), likeFlightNo),
                         cb.equal(root.get("status"), status)
                 ), pageable);
             } else {
-                page = flightRepository.findAll((root, query, cb) -> cb.like(root.get("flightNo"), flightNo), pageable);
+                page = flightRepository.findAll((root, query, cb) -> cb.like(root.get("flightNo"), likeFlightNo), pageable);
             }
         } else if (StringUtils.hasText(status)) {
             page = flightRepository.findByStatus(status, pageable);

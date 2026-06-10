@@ -16,11 +16,12 @@ export const getFlightDetail = (id: number) => {
 
 export const createFlight = (data: {
   flightNo: string
+  aircraftNo?: string
   departure: string
-  destination: string
-  departureTime: string
-  maxWeight: number
-  remark?: string
+  arrival: string
+  scheduledDeparture: string
+  totalUldLimit?: number
+  totalWeightLimit: number
 }) => {
   return request.post<any, Result<Flight>>('/flight', data)
 }

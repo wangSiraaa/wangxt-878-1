@@ -3,7 +3,7 @@ import { Layout, Menu, Dropdown, Avatar, Space, Typography, theme } from 'antd'
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  PlaneOutlined,
+  RocketOutlined,
   FileTextOutlined,
   InboxOutlined,
   SafetyCertificateOutlined,
@@ -33,7 +33,7 @@ const roleMenuMap: Record<UserRole, string[]> = {
 }
 
 const allMenus: MenuItem[] = [
-  { key: 'flight', icon: <PlaneOutlined />, label: '航班管理', path: '/flight' },
+  { key: 'flight', icon: <RocketOutlined />, label: '航班管理', path: '/flight' },
   { key: 'waybill', icon: <FileTextOutlined />, label: '货邮单管理', path: '/waybill' },
   { key: 'uld', icon: <InboxOutlined />, label: '板箱管理', path: '/uld' },
   { key: 'security', icon: <SafetyCertificateOutlined />, label: '安检确认', path: '/waybill/security' },
@@ -131,7 +131,7 @@ function MainLayout() {
           theme="dark"
           mode="inline"
           selectedKeys={[selectedKey]}
-          items={menus}
+          items={menus as any}
           onClick={handleMenuClick}
           style={{ borderRight: 0, marginTop: 8 }}
         />

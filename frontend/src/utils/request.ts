@@ -22,7 +22,7 @@ request.interceptors.response.use(
   (response: AxiosResponse<Result<any>>) => {
     const res = response.data
     if (res && res.code !== undefined) {
-      if (res.code === 200 || res.success) {
+      if (res.code === 200) {
         return res
       } else if (res.code === 401) {
         message.error('登录已过期，请重新登录')

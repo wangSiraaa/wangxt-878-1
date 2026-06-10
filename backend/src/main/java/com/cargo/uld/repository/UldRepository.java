@@ -4,6 +4,7 @@ import com.cargo.uld.entity.Uld;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -14,7 +15,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface UldRepository extends JpaRepository<Uld, Long> {
+public interface UldRepository extends JpaRepository<Uld, Long>, JpaSpecificationExecutor<Uld> {
     Optional<Uld> findByUldCode(String uldCode);
     boolean existsByUldCode(String uldCode);
     List<Uld> findByFlightId(Long flightId);

@@ -42,7 +42,7 @@ function FlightList() {
         flightNo: searchFlightNo || undefined,
         status: searchStatus
       })
-      setData(res.data.records || [])
+      setData(res.data.list || [])
       setTotal(res.data.total || 0)
     } finally {
       setLoading(false)
@@ -74,7 +74,7 @@ function FlightList() {
       okType: 'danger',
       onOk: async () => {
         const res = await closeFlight(record.id)
-        if (res.success || res.code === 200) {
+        if (res.code === 200) {
           message.success('航班关闭成功')
           fetchData()
         }
@@ -83,7 +83,8 @@ function FlightList() {
   }
 
   const statusMap: Record<string, { color: string; text: string }> = {
-    OPEN: { color: 'green', text: '开启' },
+    CREATED: { color: 'green', text: '开启' },
+    LOADING: { color: 'blue', text: '装载中' },
     CLOSED: { color: 'default', text: '已关闭' }
   }
 
@@ -117,8 +118,8 @@ function FlightList() {
     },
     {
       title: '最大载重(kg)',
-      dataIndex: 'maxWeight',
-      key: 'maxWeight',
+      dataIndex: 'totalWeightLimit',
+      key: 'totalWeightLimit',
       width: 120
     },
     {
@@ -127,7 +128,7 @@ function FlightList() {
       key: 'currentWeight',
       width: 120,
       render: (val: number, record: Flight) => {
-        const pct = record.maxWeight ? (val / record.maxWeight) * 100 : 0
+        const pct = record.totalWeightLimit ? (val / record.totalWeightLimit) * 100 : 0
         const color = pct >= 90 ? 'red' : pct >= 70 ? 'orange' : 'green'
         return (
           <span>
@@ -169,7 +170,7 @@ function FlightList() {
           >
             详情
           </Button>
-          {record.status === 'OPEN' && (
+          {record.status === 'CREATED' && (
             <Popconfirm
               title="确认关闭此航班？"
               onConfirm={() => handleClose(record)}
@@ -233,7 +234,8 @@ function FlightList() {
                   value={searchStatus}
                   onChange={(v) => setSearchStatus(v)}
                   options={[
-                    { value: 'OPEN', label: '开启' },
+                    { value: 'CREATED', label: '开启' },
+                    { value: 'LOADING', label: '装载中' },
                     { value: 'CLOSED', label: '已关闭' }
                   ]}
                 />

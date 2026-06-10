@@ -19,8 +19,20 @@ import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { getWaybillList, getWaybillDetail } from '@/api/waybill'
 import type { Waybill } from '@/types'
+import { getWaybillDisplayStatus } from '@/types'
 
 const { Search } = Input
+
+const securityStatusOptions = [
+  { value: 'PENDING', label: '待安检' },
+  { value: 'PASSED', label: '安检通过' },
+  { value: 'REJECTED', label: '安检拒绝' }
+]
+
+const loadedStatusOptions = [
+  { value: 'LOADED', label: '已装板' },
+  { value: 'UNLOADED_REVIEW', label: '已卸下(复核)' }
+]
 
 function WaybillList() {
   const [loading, setLoading] = useState(false)
@@ -29,8 +41,8 @@ function WaybillList() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [searchWaybillNo, setSearchWaybillNo] = useState('')
-  const [searchType, setSearchType] = useState<string | undefined>()
-  const [searchStatus, setSearchStatus] = useState<string | undefined>()
+  const [searchSecurityStatus, setSearchSecurityStatus] = useState<string | undefined>()
+  const [searchLoadedStatus, setSearchLoadedStatus] = useState<string | undefined>()
   const [form] = Form.useForm()
   const [detailModal, setDetailModal] = useState<{
     open: boolean
@@ -47,10 +59,10 @@ function WaybillList() {
         page,
         size: pageSize,
         waybillNo: searchWaybillNo || undefined,
-        type: searchType,
-        status: searchStatus
+        securityStatus: searchSecurityStatus,
+        loadedStatus: searchLoadedStatus
       })
-      setData(res.data.records || [])
+      setData(res.data.list || [])
       setTotal(res.data.total || 0)
     } finally {
       setLoading(false)
@@ -68,8 +80,8 @@ function WaybillList() {
 
   const handleReset = () => {
     setSearchWaybillNo('')
-    setSearchType(undefined)
-    setSearchStatus(undefined)
+    setSearchSecurityStatus(undefined)
+    setSearchLoadedStatus(undefined)
     form.resetFields()
     setPage(1)
     setTimeout(fetchData, 0)
@@ -87,14 +99,6 @@ function WaybillList() {
     }
   }
 
-  const statusMap: Record<string, { color: string; text: string }> = {
-    CREATED: { color: 'default', text: '已创建' },
-    SECURITY_PASSED: { color: 'green', text: '安检通过' },
-    SECURITY_REJECTED: { color: 'red', text: '安检拒绝' },
-    LOADED: { color: 'blue', text: '已装板' },
-    UNLOADED: { color: 'orange', text: '已卸下' }
-  }
-
   const columns = [
     {
       title: '货邮单号',
@@ -104,33 +108,25 @@ function WaybillList() {
       fixed: 'left' as const,
       render: (t: string) => <strong>{t}</strong>
     },
-    {
-      title: '类型',
-      dataIndex: 'type',
-      key: 'type',
-      width: 80,
-      render: (t: string) => (t === 'CARGO' ? '货物' : '邮件')
-    },
     { title: '托运人', dataIndex: 'shipper', key: 'shipper', width: 120 },
     { title: '收货人', dataIndex: 'consignee', key: 'consignee', width: 120 },
     { title: '重量(kg)', dataIndex: 'weight', key: 'weight', width: 100 },
     { title: '件数', dataIndex: 'pieces', key: 'pieces', width: 80 },
     { title: '关联航班', dataIndex: 'flightNo', key: 'flightNo', width: 120 },
-    { title: '关联板箱', dataIndex: 'uldNo', key: 'uldNo', width: 140 },
+    { title: '关联板箱', dataIndex: 'currentUldCode', key: 'currentUldCode', width: 140 },
     {
       title: '状态',
-      dataIndex: 'status',
       key: 'status',
       width: 120,
-      render: (s: string) => {
-        const cfg = statusMap[s] || { color: 'default', text: s }
+      render: (_: unknown, record: Waybill) => {
+        const cfg = getWaybillDisplayStatus(record)
         return <Tag color={cfg.color}>{cfg.text}</Tag>
       }
     },
     {
       title: '创建时间',
-      dataIndex: 'createTime',
-      key: 'createTime',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
       width: 170,
       render: (t: string) => dayjs(t).format('YYYY-MM-DD HH:mm:ss')
     },
@@ -189,30 +185,24 @@ function WaybillList() {
               </Form.Item>
             </Col>
             <Col span={6}>
-              <Form.Item label="类型" style={{ marginBottom: 12 }}>
+              <Form.Item label="安检状态" style={{ marginBottom: 12 }}>
                 <Select
                   allowClear
-                  placeholder="请选择类型"
-                  value={searchType}
-                  onChange={(v) => setSearchType(v)}
-                  options={[
-                    { value: 'CARGO', label: '货物' },
-                    { value: 'MAIL', label: '邮件' }
-                  ]}
+                  placeholder="请选择安检状态"
+                  value={searchSecurityStatus}
+                  onChange={(v) => setSearchSecurityStatus(v)}
+                  options={securityStatusOptions}
                 />
               </Form.Item>
             </Col>
             <Col span={6}>
-              <Form.Item label="状态" style={{ marginBottom: 12 }}>
+              <Form.Item label="装板状态" style={{ marginBottom: 12 }}>
                 <Select
                   allowClear
-                  placeholder="请选择状态"
-                  value={searchStatus}
-                  onChange={(v) => setSearchStatus(v)}
-                  options={Object.entries(statusMap).map(([k, v]) => ({
-                    value: k,
-                    label: v.text
-                  }))}
+                  placeholder="请选择装板状态"
+                  value={searchLoadedStatus}
+                  onChange={(v) => setSearchLoadedStatus(v)}
+                  options={loadedStatusOptions}
                 />
               </Form.Item>
             </Col>
@@ -261,39 +251,38 @@ function WaybillList() {
         destroyOnClose
       >
         {r && (
-          <Descriptions bordered column={2} size="small" loading={detailLoading}>
+          <Descriptions bordered column={2} size="small">
             <Descriptions.Item label="货邮单号" span={2}>
               <strong style={{ fontSize: 16 }}>{r.waybillNo}</strong>
             </Descriptions.Item>
-            <Descriptions.Item label="类型">
-              {r.type === 'CARGO' ? '货物' : '邮件'}
-            </Descriptions.Item>
             <Descriptions.Item label="状态">
               {(() => {
-                const cfg = statusMap[r.status] || { color: 'default', text: r.status }
+                const cfg = getWaybillDisplayStatus(r)
                 return <Tag color={cfg.color}>{cfg.text}</Tag>
               })()}
+            </Descriptions.Item>
+            <Descriptions.Item label="关联板箱">
+              {r.currentUldCode || '-'}
             </Descriptions.Item>
             <Descriptions.Item label="托运人">{r.shipper}</Descriptions.Item>
             <Descriptions.Item label="收货人">{r.consignee}</Descriptions.Item>
             <Descriptions.Item label="重量(kg)">{r.weight}</Descriptions.Item>
             <Descriptions.Item label="件数">{r.pieces}</Descriptions.Item>
             <Descriptions.Item label="关联航班">{r.flightNo || '-'}</Descriptions.Item>
-            <Descriptions.Item label="关联板箱">{r.uldNo || '-'}</Descriptions.Item>
             <Descriptions.Item label="安检人" span={2}>
-              {r.securityBy || '-'}
-              {r.securityTime
-                ? ` (${dayjs(r.securityTime).format('YYYY-MM-DD HH:mm')})`
+              {r.inspectedByName || '-'}
+              {r.inspectedAt
+                ? ` (${dayjs(r.inspectedAt).format('YYYY-MM-DD HH:mm')})`
                 : ''}
             </Descriptions.Item>
             <Descriptions.Item label="安检备注" span={2}>
               {r.securityRemark || '-'}
             </Descriptions.Item>
             <Descriptions.Item label="创建时间" span={2}>
-              {dayjs(r.createTime).format('YYYY-MM-DD HH:mm:ss')}
+              {dayjs(r.createdAt).format('YYYY-MM-DD HH:mm:ss')}
             </Descriptions.Item>
             <Descriptions.Item label="备注" span={2}>
-              {r.remark || '-'}
+              {r.securityRemark || '-'}
             </Descriptions.Item>
           </Descriptions>
         )}

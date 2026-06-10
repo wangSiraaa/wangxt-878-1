@@ -5,10 +5,10 @@ export const getUldList = (params: {
   page?: number
   size?: number
   uldNo?: string
-  status?: string
+  reviewStatus?: string
   flightId?: number
 }) => {
-  return request.get<any, Result<PageResult<Uld>>>('/uld', { params })
+  return request.get<any, Result<PageResult<UldDetailVO>>>('/uld', { params })
 }
 
 export const getUldDetail = (id: number) => {
@@ -16,13 +16,13 @@ export const getUldDetail = (id: number) => {
 }
 
 export const createUld = (data: {
-  uldNo: string
+  uldCode: string
   uldType: string
-  maxWeight: number
+  weightLimit: number
   flightId?: number
-  remark?: string
+  tareWeight?: number
 }) => {
-  return request.post<any, Result<Uld>>('/uld', data)
+  return request.post<any, Result<any>>('/uld', data)
 }
 
 export const loadUld = (data: {

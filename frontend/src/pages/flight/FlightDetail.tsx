@@ -15,8 +15,10 @@ import { ArrowLeftOutlined, EyeOutlined } from '@ant-design/icons'
 import { useParams, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { getFlightDetail } from '@/api/flight'
-import { getWaybillList, getUldList } from '@/api/waybill'
+import { getWaybillList } from '@/api/waybill'
+import { getUldList } from '@/api/uld'
 import type { Flight, Waybill, Uld } from '@/types'
+import { getUldDisplayStatus, getWaybillDisplayStatus } from '@/types'
 
 function FlightDetail() {
   const { id } = useParams<{ id: string }>()
@@ -37,8 +39,8 @@ function FlightDetail() {
         getWaybillList({ flightId: Number(id), page: 1, size: 1000 })
       ])
       setFlight(fRes.data)
-      setUlds((uRes.data as any).records || [])
-      setWaybills((wRes.data as any).records || [])
+      setUlds((uRes.data as any).list || [])
+      setWaybills((wRes.data as any).list || [])
     } catch (e) {
       message.error('获取航班详情失败')
     } finally {
@@ -51,36 +53,20 @@ function FlightDetail() {
   }, [id])
 
   const statusMap: Record<string, { color: string; text: string }> = {
-    OPEN: { color: 'green', text: '开启' },
+    CREATED: { color: 'green', text: '已建档' },
+    LOADING: { color: 'blue', text: '装板中' },
     CLOSED: { color: 'default', text: '已关闭' }
   }
 
-  const uldStatusMap: Record<string, { color: string; text: string }> = {
-    EMPTY: { color: 'default', text: '空板' },
-    LOADING: { color: 'blue', text: '装板中' },
-    FULL: { color: 'orange', text: '已满' },
-    REVIEW_PENDING: { color: 'purple', text: '待复核' },
-    REVIEW_PASSED: { color: 'green', text: '复核通过' },
-    REVIEW_REJECTED: { color: 'red', text: '复核退回' }
-  }
-
-  const waybillStatusMap: Record<string, { color: string; text: string }> = {
-    CREATED: { color: 'default', text: '已创建' },
-    SECURITY_PASSED: { color: 'green', text: '安检通过' },
-    SECURITY_REJECTED: { color: 'red', text: '安检拒绝' },
-    LOADED: { color: 'blue', text: '已装板' },
-    UNLOADED: { color: 'orange', text: '已卸下' }
-  }
-
-  const weightPercent = flight && flight.maxWeight
-    ? Math.min((flight.currentWeight / flight.maxWeight) * 100, 100)
+  const weightPercent = flight && flight.totalWeightLimit
+    ? Math.min(((flight.currentWeight || 0) / flight.totalWeightLimit) * 100, 100)
     : 0
 
   const uldColumns = [
     {
       title: '板箱号',
-      dataIndex: 'uldNo',
-      key: 'uldNo',
+      dataIndex: 'uldCode',
+      key: 'uldCode',
       width: 160,
       render: (t: string, r: Uld) => (
         <a onClick={() => navigate(`/uld/${r.id}`)}>{t}</a>
@@ -92,16 +78,16 @@ function FlightDetail() {
       dataIndex: 'currentWeight',
       key: 'currentWeight',
       width: 140,
-      render: (v: number, r: Uld) => `${v} / ${r.maxWeight}`
+      render: (v: number, r: Uld) => `${v} / ${r.weightLimit}`
     },
     { title: '货邮单数', dataIndex: 'waybillCount', key: 'waybillCount', width: 100 },
     {
       title: '状态',
-      dataIndex: 'status',
-      key: 'status',
+      dataIndex: 'reviewStatus',
+      key: 'reviewStatus',
       width: 120,
-      render: (s: string) => {
-        const cfg = uldStatusMap[s] || { color: 'default', text: s }
+      render: (_: string, r: Uld) => {
+        const cfg = getUldDisplayStatus(r)
         return <Tag color={cfg.color}>{cfg.text}</Tag>
       }
     },
@@ -130,25 +116,17 @@ function FlightDetail() {
       width: 160,
       render: (t: string) => <strong>{t}</strong>
     },
-    {
-      title: '类型',
-      dataIndex: 'type',
-      key: 'type',
-      width: 80,
-      render: (t: string) => (t === 'CARGO' ? '货物' : '邮件')
-    },
     { title: '托运人', dataIndex: 'shipper', key: 'shipper', width: 120 },
     { title: '收货人', dataIndex: 'consignee', key: 'consignee', width: 120 },
     { title: '重量(kg)', dataIndex: 'weight', key: 'weight', width: 100 },
     { title: '件数', dataIndex: 'pieces', key: 'pieces', width: 80 },
-    { title: '关联板箱', dataIndex: 'uldNo', key: 'uldNo', width: 140 },
+    { title: '关联板箱', dataIndex: 'currentUldCode', key: 'currentUldCode', width: 140 },
     {
       title: '状态',
-      dataIndex: 'status',
       key: 'status',
       width: 120,
-      render: (s: string) => {
-        const cfg = waybillStatusMap[s] || { color: 'default', text: s }
+      render: (_: unknown, r: Waybill) => {
+        const cfg = getWaybillDisplayStatus(r)
         return <Tag color={cfg.color}>{cfg.text}</Tag>
       }
     }
@@ -177,12 +155,12 @@ function FlightDetail() {
                 })()}
               </Descriptions.Item>
               <Descriptions.Item label="出发地">{flight.departure}</Descriptions.Item>
-              <Descriptions.Item label="目的地">{flight.destination}</Descriptions.Item>
+              <Descriptions.Item label="目的地">{flight.arrival}</Descriptions.Item>
               <Descriptions.Item label="起飞时间">
-                {dayjs(flight.departureTime).format('YYYY-MM-DD HH:mm')}
+                {dayjs(flight.scheduledDeparture).format('YYYY-MM-DD HH:mm')}
               </Descriptions.Item>
               <Descriptions.Item label="创建时间">
-                {dayjs(flight.createTime).format('YYYY-MM-DD HH:mm:ss')}
+                {dayjs(flight.createdAt).format('YYYY-MM-DD HH:mm:ss')}
               </Descriptions.Item>
               <Descriptions.Item label="备注" span={2}>
                 {flight.remark || '-'}
@@ -194,7 +172,7 @@ function FlightDetail() {
                 <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'space-between' }}>
                   <span>载重进度</span>
                   <span style={{ color: weightPercent >= 90 ? '#ff4d4f' : '#1677ff' }}>
-                    {flight.currentWeight} / {flight.maxWeight} kg ({weightPercent.toFixed(1)}%)
+                    {flight.currentWeight} / {flight.totalWeightLimit} kg ({weightPercent.toFixed(1)}%)
                   </span>
                 </div>
                 <Progress

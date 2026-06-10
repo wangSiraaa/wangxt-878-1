@@ -18,7 +18,7 @@ function Login() {
     setLoading(true)
     try {
       const res = await loginApi(values)
-      if (res.success || res.code === 200) {
+      if (res.code === 200) {
         setAuth(res.data)
         message.success('登录成功')
         navigate('/', { replace: true })

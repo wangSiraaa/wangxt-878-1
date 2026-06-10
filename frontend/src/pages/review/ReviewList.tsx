@@ -17,7 +17,8 @@ import {
   Progress,
   Tooltip,
   Divider,
-  Empty
+  Empty,
+  Spin
 } from 'antd'
 import {
   CheckCircleOutlined,
@@ -31,6 +32,7 @@ import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { getUldList, getUldDetail, passReview, rejectReview, submitReview } from '@/api/uld'
 import type { Uld, UldDetailVO } from '@/types'
+import { getUldDisplayStatus, getWaybillDisplayStatus } from '@/types'
 
 const { TextArea } = Input
 
@@ -41,7 +43,7 @@ function ReviewList() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [searchUldNo, setSearchUldNo] = useState('')
-  const [tabStatus, setTabStatus] = useState<string>('REVIEW_PENDING')
+  const [tabStatus, setTabStatus] = useState<string>('REVIEWING')
   const [form] = Form.useForm()
   const navigate = useNavigate()
   const { message, modal } = App.useApp()
@@ -73,10 +75,12 @@ function ReviewList() {
         page,
         size: pageSize,
         uldNo: searchUldNo || undefined,
-        status: tabStatus
+        reviewStatus: tabStatus || undefined
       })
-      setData(res.data.records || [])
-      setTotal(res.data.total || 0)
+      if (res.code === 200) {
+        setData(res.data.list || [])
+        setTotal(res.data.total || 0)
+      }
     } finally {
       setLoading(false)
     }
@@ -102,8 +106,10 @@ function ReviewList() {
     setDetailLoading(true)
     try {
       const res = await getUldDetail(record.id)
-      setDetailModal({ open: true, record: res.data })
-    } catch (e) {
+      if (res.code === 200) {
+        setDetailModal({ open: true, record: res.data })
+      }
+    } catch {
       message.error('获取详情失败')
     } finally {
       setDetailLoading(false)
@@ -127,7 +133,7 @@ function ReviewList() {
         actualWeight: values.actualWeight,
         remark: values.remark
       })
-      if (res.success || res.code === 200) {
+      if (res.code === 200) {
         message.success('复核通过成功')
         setPassModal({ open: false, record: null })
         fetchData()
@@ -141,7 +147,7 @@ function ReviewList() {
     setRejectModal({ open: true, record })
     rejectForm.setFieldsValue({
       rejectReason: '',
-      unlockToStatus: 'LOADING',
+      unlockToStatus: 'PENDING',
       remark: ''
     })
   }
@@ -156,7 +162,7 @@ function ReviewList() {
         unlockToStatus: values.unlockToStatus,
         remark: values.remark
       })
-      if (res.success || res.code === 200) {
+      if (res.code === 200) {
         message.success('复核退回成功')
         setRejectModal({ open: false, record: null })
         fetchData()
@@ -169,11 +175,11 @@ function ReviewList() {
   const handleSubmitReview = (record: Uld) => {
     modal.confirm({
       title: '提交复核',
-      content: `确认将板箱 ${record.uldNo} 提交复核？`,
+      content: `确认将板箱 ${record.uldCode} 提交复核？`,
       okText: '确认提交',
       onOk: async () => {
         const res = await submitReview(record.id)
-        if (res.success || res.code === 200) {
+        if (res.code === 200) {
           message.success('提交复核成功')
           fetchData()
         }
@@ -181,27 +187,18 @@ function ReviewList() {
     })
   }
 
-  const statusMap: Record<string, { color: string; text: string }> = {
-    EMPTY: { color: 'default', text: '空板' },
-    LOADING: { color: 'blue', text: '装板中' },
-    FULL: { color: 'orange', text: '已满' },
-    REVIEW_PENDING: { color: 'purple', text: '待复核' },
-    REVIEW_PASSED: { color: 'green', text: '复核通过' },
-    REVIEW_REJECTED: { color: 'red', text: '复核退回' }
-  }
-
   const tabs = [
-    { key: 'REVIEW_PENDING', label: '待复核', color: 'purple' },
-    { key: 'REVIEW_PASSED', label: '已通过', color: 'green' },
-    { key: 'REVIEW_REJECTED', label: '已退回', color: 'red' },
+    { key: 'REVIEWING', label: '待复核', color: 'purple' },
+    { key: 'PASSED', label: '已通过', color: 'green' },
+    { key: 'REJECTED', label: '已退回', color: 'red' },
     { key: '', label: '全部', color: 'default' }
   ]
 
   const columns = [
     {
       title: '板箱号',
-      dataIndex: 'uldNo',
-      key: 'uldNo',
+      dataIndex: 'uldCode',
+      key: 'uldCode',
       width: 160,
       fixed: 'left' as const,
       render: (t: string, r: Uld) => (
@@ -218,11 +215,11 @@ function ReviewList() {
       key: 'currentWeight',
       width: 140,
       render: (v: number, r: Uld) => (
-        <Tooltip title={`最大 ${r.maxWeight}kg`}>
+        <Tooltip title={`限重 ${r.weightLimit}kg`}>
           <span>
             {v}
             <span style={{ color: '#999', marginLeft: 4 }}>
-              ({r.maxWeight ? ((v / r.maxWeight) * 100).toFixed(1) : 0}%)
+              ({r.weightLimit ? ((v / r.weightLimit) * 100).toFixed(1) : 0}%)
             </span>
           </span>
         </Tooltip>
@@ -233,7 +230,7 @@ function ReviewList() {
       key: 'weight',
       width: 200,
       render: (_: unknown, r: Uld) => {
-        const pct = r.maxWeight ? Math.min((r.currentWeight / r.maxWeight) * 100, 100) : 0
+        const pct = r.weightLimit ? Math.min((r.currentWeight / r.weightLimit) * 100, 100) : 0
         return (
           <Progress
             percent={pct}
@@ -243,21 +240,21 @@ function ReviewList() {
         )
       }
     },
-    { title: '货邮单数', dataIndex: 'waybillCount', key: 'waybillCount', width: 100 },
+    { title: '货邮单数', key: 'waybillCount', width: 100, render: (_: unknown, r: Uld) => (r as any).waybills?.length ?? '-' },
     {
       title: '状态',
-      dataIndex: 'status',
-      key: 'status',
+      dataIndex: 'reviewStatus',
+      key: 'reviewStatus',
       width: 120,
-      render: (s: string) => {
-        const cfg = statusMap[s] || { color: 'default', text: s }
-        return <Tag color={cfg.color}>{cfg.text}</Tag>
+      render: (_: string, record: Uld) => {
+        const s = getUldDisplayStatus(record)
+        return <Tag color={s.color}>{s.text}</Tag>
       }
     },
     {
       title: '创建时间',
-      dataIndex: 'createTime',
-      key: 'createTime',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
       width: 170,
       render: (t: string) => dayjs(t).format('YYYY-MM-DD HH:mm:ss')
     },
@@ -276,7 +273,7 @@ function ReviewList() {
           >
             详情
           </Button>
-          {record.status === 'REVIEW_PENDING' && (
+          {record.reviewStatus === 'REVIEWING' && (
             <>
               <Tooltip title="复核通过">
                 <Button
@@ -302,7 +299,7 @@ function ReviewList() {
               </Tooltip>
             </>
           )}
-          {record.status === 'REVIEW_REJECTED' && (
+          {record.reviewStatus === 'REJECTED' && (
             <Tooltip title="重新提交复核">
               <Button
                 type="link"
@@ -406,7 +403,7 @@ function ReviewList() {
           rowKey="id"
           scroll={{ x: 1400 }}
           locale={{
-            emptyText: tabStatus === 'REVIEW_PENDING' ? (
+            emptyText: tabStatus === 'REVIEWING' ? (
               <Empty description="暂无待复核板箱" />
             ) : undefined
           }}
@@ -438,24 +435,24 @@ function ReviewList() {
         destroyOnClose
       >
         {detail && (
-          <div loading={detailLoading ? 'true' : 'false'}>
+          <Spin spinning={detailLoading}>
             <Descriptions bordered column={2} size="small" style={{ marginBottom: 16 }}>
               <Descriptions.Item label="板箱号" span={2}>
-                <strong style={{ fontSize: 16 }}>{detail.uld.uldNo}</strong>
+                <strong style={{ fontSize: 16 }}>{detail.uldCode}</strong>
               </Descriptions.Item>
-              <Descriptions.Item label="类型">{detail.uld.uldType}</Descriptions.Item>
-              <Descriptions.Item label="关联航班">{detail.uld.flightNo || '-'}</Descriptions.Item>
+              <Descriptions.Item label="类型">{detail.uldType}</Descriptions.Item>
+              <Descriptions.Item label="关联航班">{detail.flightNo || '-'}</Descriptions.Item>
               <Descriptions.Item label="申报重量(kg)">
-                <strong style={{ color: '#1677ff' }}>{detail.uld.currentWeight}</strong> / {detail.uld.maxWeight}
+                <strong style={{ color: '#1677ff' }}>{detail.currentWeight}</strong> / {detail.weightLimit}
               </Descriptions.Item>
               <Descriptions.Item label="货邮单数">
-                <strong>{detail.waybills.filter(w => w.status === 'LOADED').length}</strong>
+                <strong>{detail.waybills.filter(w => w.loadedStatus === 'LOADED').length}</strong>
               </Descriptions.Item>
             </Descriptions>
             <Divider orientation="left" style={{ margin: '8px 0 12px' }}>
               已装货邮单列表
             </Divider>
-            {detail.waybills.filter(w => w.status === 'LOADED').length === 0 ? (
+            {detail.waybills.filter(w => w.loadedStatus === 'LOADED').length === 0 ? (
               <Empty description="暂无货邮单" style={{ padding: 16 }} />
             ) : (
               <div style={{ maxHeight: 260, overflow: 'auto', border: '1px solid #f0f0f0', borderRadius: 8 }}>
@@ -465,24 +462,33 @@ function ReviewList() {
                   pagination={false}
                   columns={[
                     { title: '货邮单号', dataIndex: 'waybillNo', width: 150 },
-                    { title: '类型', dataIndex: 'type', width: 60, render: (t: string) => t === 'CARGO' ? '货物' : '邮件' },
                     { title: '托运人', dataIndex: 'shipper', width: 100 },
                     { title: '收货人', dataIndex: 'consignee', width: 100 },
-                    { title: '重量(kg)', dataIndex: 'weight', width: 90, align: 'right' as const }
+                    { title: '重量(kg)', dataIndex: 'weight', width: 90, align: 'right' as const },
+                    {
+                      title: '状态',
+                      key: 'status',
+                      width: 100,
+                      render: (_: unknown, w: any) => {
+                        const s = getWaybillDisplayStatus(w)
+                        return <Tag color={s.color}>{s.text}</Tag>
+                      }
+                    }
                   ]}
-                  dataSource={detail.waybills.filter(w => w.status === 'LOADED')}
+                  dataSource={detail.waybills.filter(w => w.loadedStatus === 'LOADED')}
                   summary={(pageData) => {
                     let totalWeight = 0
                     pageData.forEach((r: any) => (totalWeight += r.weight))
                     return (
                       <Table.Summary fixed>
                         <Table.Summary.Row>
-                          <Table.Summary.Cell index={0} colSpan={4} align="right">
+                          <Table.Summary.Cell index={0} colSpan={3} align="right">
                             <strong>合计：</strong>
                           </Table.Summary.Cell>
-                          <Table.Summary.Cell index={4} align="right">
+                          <Table.Summary.Cell index={3} align="right">
                             <strong style={{ color: '#1677ff' }}>{totalWeight} kg</strong>
                           </Table.Summary.Cell>
+                          <Table.Summary.Cell index={4} />
                         </Table.Summary.Row>
                       </Table.Summary>
                     )
@@ -490,13 +496,12 @@ function ReviewList() {
                 />
               </div>
             )}
-          </div>
+          </Spin>
         )}
       </Modal>
 
       <Modal
-        title={passRecord ? `复核通过 - ${passRecord.uldNo}` : '复核通过'}
-        open={passModal.open}
+        title={passRecord ? `复核通过 - ${passRecord.uldCode}` : '复核通过'}
         onCancel={() => setPassModal({ open: false, record: null })}
         onOk={handleConfirmPass}
         confirmLoading={passLoading}
@@ -518,7 +523,7 @@ function ReviewList() {
               <Row gutter={16}>
                 <Col span={8}>
                   <div style={{ fontSize: 12, color: '#666' }}>板箱号</div>
-                  <div style={{ fontWeight: 600 }}>{passRecord.uldNo}</div>
+                  <div style={{ fontWeight: 600 }}>{passRecord.uldCode}</div>
                 </Col>
                 <Col span={8}>
                   <div style={{ fontSize: 12, color: '#666' }}>申报重量</div>
@@ -526,7 +531,7 @@ function ReviewList() {
                 </Col>
                 <Col span={8}>
                   <div style={{ fontSize: 12, color: '#666' }}>货邮单数</div>
-                  <div style={{ fontWeight: 600 }}>{passRecord.waybillCount}</div>
+                  <div style={{ fontWeight: 600 }}>{(passRecord as any).waybills?.length || 0}</div>
                 </Col>
               </Row>
             </div>
@@ -557,7 +562,7 @@ function ReviewList() {
       </Modal>
 
       <Modal
-        title={rejectRecord ? `复核退回 - ${rejectRecord.uldNo}` : '复核退回'}
+        title={rejectRecord ? `复核退回 - ${rejectRecord.uldCode}` : '复核退回'}
         open={rejectModal.open}
         onCancel={() => setRejectModal({ open: false, record: null })}
         onOk={handleConfirmReject}
@@ -588,7 +593,7 @@ function ReviewList() {
             >
               <Select
                 options={[
-                  { value: 'LOADING', label: '装板中（可继续装板/卸下）' },
+                  { value: 'PENDING', label: '装板中（可继续装板/卸下）' },
                   { value: 'EMPTY', label: '空板（需重新开始）' }
                 ]}
               />

@@ -5,8 +5,8 @@ export const getWaybillList = (params: {
   page?: number
   size?: number
   waybillNo?: string
-  type?: string
-  status?: string
+  securityStatus?: string
+  loadedStatus?: string
   flightId?: number
 }) => {
   return request.get<any, Result<PageResult<Waybill>>>('/waybill', { params })
@@ -18,13 +18,15 @@ export const getWaybillDetail = (id: number) => {
 
 export const createWaybill = (data: {
   waybillNo: string
-  type: string
-  shipper: string
-  consignee: string
+  flightId?: number
+  shipper?: string
+  consignee?: string
   weight: number
   pieces: number
-  flightId?: number
-  remark?: string
+  volume?: number
+  goodsDescription?: string
+  dangerousFlag?: boolean
+  dangerousLevel?: string
 }) => {
   return request.post<any, Result<Waybill>>('/waybill', data)
 }

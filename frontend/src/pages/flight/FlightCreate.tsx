@@ -30,12 +30,12 @@ function FlightCreate() {
     try {
       const payload = {
         ...values,
-        departureTime: values.departureTime
-          ? dayjs(values.departureTime).format('YYYY-MM-DDTHH:mm:ss')
+        scheduledDeparture: values.scheduledDeparture
+          ? dayjs(values.scheduledDeparture).format('YYYY-MM-DDTHH:mm:ss')
           : undefined
       }
       const res = await createFlight(payload)
-      if (res.success || res.code === 200) {
+      if (res.code === 200) {
         message.success('创建航班成功')
         navigate('/flight')
       }
@@ -58,7 +58,7 @@ function FlightCreate() {
           form={form}
           layout="vertical"
           onFinish={handleSubmit}
-          initialValues={{ maxWeight: 5000 }}
+          initialValues={{ totalWeightLimit: 5000 }}
           style={{ maxWidth: 900 }}
         >
           <Row gutter={24}>
@@ -77,7 +77,7 @@ function FlightCreate() {
             <Col span={12}>
               <Form.Item
                 label="起飞时间"
-                name="departureTime"
+                name="scheduledDeparture"
                 rules={[{ required: true, message: '请选择起飞时间' }]}
               >
                 <DatePicker
@@ -104,7 +104,7 @@ function FlightCreate() {
             <Col span={12}>
               <Form.Item
                 label="目的地"
-                name="destination"
+                name="arrival"
                 rules={[{ required: true, message: '请输入目的地' }]}
               >
                 <Input placeholder="例如：上海PVG" allowClear />
@@ -116,7 +116,7 @@ function FlightCreate() {
             <Col span={12}>
               <Form.Item
                 label="最大载重(kg)"
-                name="maxWeight"
+                name="totalWeightLimit"
                 rules={[
                   { required: true, message: '请输入最大载重' },
                   { type: 'number', min: 1, message: '最大载重必须大于0' }

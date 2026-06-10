@@ -33,8 +33,10 @@ function WaybillCreate() {
     const fetchFlights = async () => {
       setFlightLoading(true)
       try {
-        const res = await getFlightList({ page: 1, size: 1000, status: 'OPEN' })
-        setFlightOptions(res.data.records || [])
+        const res = await getFlightList({ page: 1, size: 1000 })
+        if (res.code === 200) {
+          setFlightOptions(res.data.list || [])
+        }
       } finally {
         setFlightLoading(false)
       }
@@ -46,7 +48,7 @@ function WaybillCreate() {
     setLoading(true)
     try {
       const res = await createWaybill(values)
-      if (res.success || res.code === 200) {
+      if (res.code === 200) {
         message.success('录入货邮单成功')
         navigate('/waybill')
       }
@@ -70,7 +72,7 @@ function WaybillCreate() {
             form={form}
             layout="vertical"
             onFinish={handleSubmit}
-            initialValues={{ type: 'CARGO', pieces: 1 }}
+            initialValues={{ pieces: 1, dangerousFlag: false }}
             style={{ maxWidth: 900 }}
           >
             <Row gutter={24}>
@@ -87,16 +89,16 @@ function WaybillCreate() {
                 </Form.Item>
               </Col>
               <Col span={12}>
-                <Form.Item
-                  label="类型"
-                  name="type"
-                  rules={[{ required: true, message: '请选择类型' }]}
-                >
+                <Form.Item label="关联航班(可选)" name="flightId">
                   <Select
-                    options={[
-                      { value: 'CARGO', label: '货物' },
-                      { value: 'MAIL', label: '邮件' }
-                    ]}
+                    showSearch
+                    placeholder="选择航班"
+                    optionFilterProp="label"
+                    allowClear
+                    options={flightOptions.map((f) => ({
+                      value: f.id,
+                      label: `${f.flightNo} (${f.departure} → ${f.arrival})`
+                    }))}
                   />
                 </Form.Item>
               </Col>
@@ -130,7 +132,19 @@ function WaybillCreate() {
             </Row>
 
             <Row gutter={24}>
-              <Col span={12}>
+              <Col span={8}>
+                <Form.Item
+                  label="件数"
+                  name="pieces"
+                  rules={[
+                    { required: true, message: '请输入件数' },
+                    { type: 'number', min: 1, message: '件数必须大于0' }
+                  ]}
+                >
+                  <InputNumber min={1} max={99999} style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+              <Col span={8}>
                 <Form.Item
                   label="重量(kg)"
                   name="weight"
@@ -148,45 +162,50 @@ function WaybillCreate() {
                   />
                 </Form.Item>
               </Col>
-              <Col span={12}>
-                <Form.Item
-                  label="件数"
-                  name="pieces"
-                  rules={[
-                    { required: true, message: '请输入件数' },
-                    { type: 'number', min: 1, message: '件数必须大于0' }
-                  ]}
-                >
-                  <InputNumber min={1} max={99999} style={{ width: '100%' }} />
+              <Col span={8}>
+                <Form.Item label="体积(m³)" name="volume">
+                  <InputNumber
+                    min={0.01}
+                    max={99999}
+                    step={0.1}
+                    precision={2}
+                    style={{ width: '100%' }}
+                  />
                 </Form.Item>
               </Col>
             </Row>
 
             <Row gutter={24}>
               <Col span={12}>
-                <Form.Item label="关联航班(可选)" name="flightId">
+                <Form.Item label="货物描述" name="goodsDescription">
+                  <Input placeholder="请输入货物描述" allowClear maxLength={200} />
+                </Form.Item>
+              </Col>
+              <Col span={6}>
+                <Form.Item label="危险品" name="dangerousFlag" valuePropName="checked">
                   <Select
-                    showSearch
-                    placeholder="选择航班（仅显示开启的航班）"
-                    optionFilterProp="label"
+                    options={[
+                      { value: false, label: '否' },
+                      { value: true, label: '是' }
+                    ]}
+                  />
+                </Form.Item>
+              </Col>
+              <Col span={6}>
+                <Form.Item label="危险等级" name="dangerousLevel">
+                  <Select
+                    placeholder="选择等级"
                     allowClear
-                    options={flightOptions.map((f) => ({
-                      value: f.id,
-                      label: `${f.flightNo} (${f.departure} → ${f.destination})`
-                    }))}
+                    disabled={form.getFieldValue('dangerousFlag') !== true}
+                    options={[
+                      { value: 'LEVEL_1', label: '1级 - 低危险' },
+                      { value: 'LEVEL_2', label: '2级 - 中危险' },
+                      { value: 'LEVEL_3', label: '3级 - 高危险' }
+                    ]}
                   />
                 </Form.Item>
               </Col>
             </Row>
-
-            <Form.Item label="备注" name="remark">
-              <Input.TextArea
-                rows={4}
-                placeholder="请输入备注信息（可选）"
-                maxLength={500}
-                showCount
-              />
-            </Form.Item>
 
             <Form.Item style={{ marginTop: 24 }}>
               <Space>

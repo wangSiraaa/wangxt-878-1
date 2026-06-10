@@ -20,7 +20,6 @@ import {
   PlusOutlined,
   EyeOutlined,
   ReloadOutlined,
-  InboxOutlined,
   ImportOutlined,
   ExportOutlined
 } from '@ant-design/icons'
@@ -29,6 +28,7 @@ import dayjs from 'dayjs'
 import { getUldList, createUld, loadUld, unloadUld } from '@/api/uld'
 import { getWaybillList } from '@/api/waybill'
 import type { Uld, Waybill } from '@/types'
+import { getUldDisplayStatus, getWaybillDisplayStatus } from '@/types'
 
 function UldList() {
   const [loading, setLoading] = useState(false)
@@ -37,7 +37,7 @@ function UldList() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [searchUldNo, setSearchUldNo] = useState('')
-  const [searchStatus, setSearchStatus] = useState<string | undefined>()
+  const [searchReviewStatus, setSearchReviewStatus] = useState<string | undefined>()
   const [form] = Form.useForm()
   const navigate = useNavigate()
   const { message } = App.useApp()
@@ -71,10 +71,12 @@ function UldList() {
         page,
         size: pageSize,
         uldNo: searchUldNo || undefined,
-        status: searchStatus
+        reviewStatus: searchReviewStatus
       })
-      setData(res.data.records || [])
-      setTotal(res.data.total || 0)
+      if (res.code === 200) {
+        setData(res.data.list || [])
+        setTotal(res.data.total || 0)
+      }
     } finally {
       setLoading(false)
     }
@@ -91,7 +93,7 @@ function UldList() {
 
   const handleReset = () => {
     setSearchUldNo('')
-    setSearchStatus(undefined)
+    setSearchReviewStatus(undefined)
     form.resetFields()
     setPage(1)
     setTimeout(fetchData, 0)
@@ -107,7 +109,7 @@ function UldList() {
     try {
       const values = await createForm.validateFields()
       const res = await createUld(values)
-      if (res.success || res.code === 200) {
+      if (res.code === 200) {
         message.success('创建板箱成功')
         setCreateModal(false)
         fetchData()
@@ -123,12 +125,14 @@ function UldList() {
     setWaybillLoading(true)
     try {
       const res = await getWaybillList({
-        status: 'SECURITY_PASSED',
+        securityStatus: 'PASSED',
         page: 1,
         size: 1000,
         flightId: record.flightId || undefined
       })
-      setWaybillOptions((res.data as any).records || [])
+      if (res.code === 200) {
+        setWaybillOptions(res.data.list || [])
+      }
     } finally {
       setWaybillLoading(false)
     }
@@ -144,7 +148,7 @@ function UldList() {
         waybillId: values.waybillId,
         remark: values.remark
       })
-      if (res.success || res.code === 200) {
+      if (res.code === 200) {
         message.success('装板成功')
         setLoadModal({ open: false, record: null })
         fetchData()
@@ -160,18 +164,14 @@ function UldList() {
     setUldWaybillsLoading(true)
     try {
       const res = await getWaybillList({
-        uldId: undefined as any,
+        loadedStatus: 'LOADED',
         page: 1,
         size: 1000
       })
-      const list: Waybill[] = ((res.data as any).records || []) as Waybill[]
-      setUldWaybills(
-        list.filter(
-          (w) =>
-            w.uldId === record.id &&
-            (w.status === 'LOADED' || w.status === 'UNLOADED')
-        )
-      )
+      if (res.code === 200) {
+        const list: Waybill[] = (res.data.list || []) as Waybill[]
+        setUldWaybills(list.filter((w) => w.currentUldId === record.id))
+      }
     } finally {
       setUldWaybillsLoading(false)
     }
@@ -187,7 +187,7 @@ function UldList() {
         waybillId: values.waybillId,
         remark: values.remark
       })
-      if (res.success || res.code === 200) {
+      if (res.code === 200) {
         message.success('卸下成功')
         setUnloadModal({ open: false, record: null })
         fetchData()
@@ -197,20 +197,18 @@ function UldList() {
     }
   }
 
-  const statusMap: Record<string, { color: string; text: string }> = {
-    EMPTY: { color: 'default', text: '空板' },
-    LOADING: { color: 'blue', text: '装板中' },
-    FULL: { color: 'orange', text: '已满' },
-    REVIEW_PENDING: { color: 'purple', text: '待复核' },
-    REVIEW_PASSED: { color: 'green', text: '复核通过' },
-    REVIEW_REJECTED: { color: 'red', text: '复核退回' }
-  }
+  const reviewStatusOptions = [
+    { value: 'PENDING', label: '装板中' },
+    { value: 'REVIEWING', label: '复核中' },
+    { value: 'PASSED', label: '复核通过' },
+    { value: 'REJECTED', label: '复核退回' }
+  ]
 
   const columns = [
     {
       title: '板箱号',
-      dataIndex: 'uldNo',
-      key: 'uldNo',
+      dataIndex: 'uldCode',
+      key: 'uldCode',
       width: 160,
       fixed: 'left' as const,
       render: (t: string, r: Uld) => (
@@ -226,9 +224,9 @@ function UldList() {
       key: 'weight',
       width: 220,
       render: (_: unknown, r: Uld) => {
-        const pct = r.maxWeight ? Math.min((r.currentWeight / r.maxWeight) * 100, 100) : 0
+        const pct = r.weightLimit ? Math.min((r.currentWeight / r.weightLimit) * 100, 100) : 0
         return (
-          <Tooltip title={`当前 ${r.currentWeight}kg / 最大 ${r.maxWeight}kg`}>
+          <Tooltip title={`当前 ${r.currentWeight}kg / 限重 ${r.weightLimit}kg`}>
             <div>
               <Progress
                 percent={pct}
@@ -236,28 +234,28 @@ function UldList() {
                 status={pct >= 95 ? 'exception' : pct >= 80 ? 'active' : undefined}
               />
               <div style={{ fontSize: 12, color: '#666' }}>
-                {r.currentWeight} / {r.maxWeight} kg ({pct.toFixed(1)}%)
+                {r.currentWeight} / {r.weightLimit} kg ({pct.toFixed(1)}%)
               </div>
             </div>
           </Tooltip>
         )
       }
     },
-    { title: '货邮单数', dataIndex: 'waybillCount', key: 'waybillCount', width: 100 },
+    { title: '货邮单数', key: 'waybillCount', width: 100, render: (_: unknown, r: Uld) => (r as any).waybills?.length ?? '-' },
     {
       title: '状态',
-      dataIndex: 'status',
-      key: 'status',
+      dataIndex: 'reviewStatus',
+      key: 'reviewStatus',
       width: 120,
-      render: (s: string) => {
-        const cfg = statusMap[s] || { color: 'default', text: s }
-        return <Tag color={cfg.color}>{cfg.text}</Tag>
+      render: (_: string, record: Uld) => {
+        const s = getUldDisplayStatus(record)
+        return <Tag color={s.color}>{s.text}</Tag>
       }
     },
     {
       title: '创建时间',
-      dataIndex: 'createTime',
-      key: 'createTime',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
       width: 170,
       render: (t: string) => dayjs(t).format('YYYY-MM-DD HH:mm:ss')
     },
@@ -276,7 +274,7 @@ function UldList() {
           >
             详情
           </Button>
-          {(record.status === 'EMPTY' || record.status === 'LOADING' || record.status === 'REVIEW_REJECTED') && (
+          {(record.reviewStatus === 'PENDING' || record.reviewStatus === 'REJECTED') && !record.locked && (
             <Tooltip title="装板">
               <Button
                 type="link"
@@ -288,7 +286,7 @@ function UldList() {
               </Button>
             </Tooltip>
           )}
-          {record.waybillCount > 0 && (
+          {((record as any).waybills?.length > 0) && record.reviewStatus !== 'REVIEWING' && (
             <Tooltip title="卸下">
               <Button
                 type="link"
@@ -343,12 +341,9 @@ function UldList() {
                 <Select
                   allowClear
                   placeholder="请选择状态"
-                  value={searchStatus}
-                  onChange={(v) => setSearchStatus(v)}
-                  options={Object.entries(statusMap).map(([k, v]) => ({
-                    value: k,
-                    label: v.text
-                  }))}
+                  value={searchReviewStatus}
+                  onChange={(v) => setSearchReviewStatus(v)}
+                  options={reviewStatusOptions}
                 />
               </Form.Item>
             </Col>
@@ -394,12 +389,12 @@ function UldList() {
         destroyOnClose
         width={600}
       >
-        <Form form={createForm} layout="vertical" initialValues={{ maxWeight: 1500 }}>
+        <Form form={createForm} layout="vertical" initialValues={{ weightLimit: 1500 }}>
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item
                 label="板箱号"
-                name="uldNo"
+                name="uldCode"
                 rules={[
                   { required: true, message: '请输入板箱号' },
                   { max: 50, message: '最多50个字符' }
@@ -431,7 +426,7 @@ function UldList() {
             <Col span={12}>
               <Form.Item
                 label="最大载重(kg)"
-                name="maxWeight"
+                name="weightLimit"
                 rules={[
                   { required: true, message: '请输入最大载重' },
                   { type: 'number', min: 1, message: '必须大于0' }
@@ -448,7 +443,7 @@ function UldList() {
       </Modal>
 
       <Modal
-        title={loadRecord ? `装板 - ${loadRecord.uldNo}` : '装板'}
+        title={loadRecord ? `装板 - ${loadRecord.uldCode}` : '装板'}
         open={loadModal.open}
         onCancel={() => setLoadModal({ open: false, record: null })}
         onOk={handleLoad}
@@ -468,12 +463,12 @@ function UldList() {
                 <Col span={8}>
                   <div style={{ fontSize: 12, color: '#666' }}>剩余载重</div>
                   <div style={{ fontWeight: 600, color: '#1677ff' }}>
-                    {loadRecord.maxWeight - loadRecord.currentWeight} kg
+                    {loadRecord.weightLimit - loadRecord.currentWeight} kg
                   </div>
                 </Col>
                 <Col span={8}>
-                  <div style={{ fontSize: 12, color: '#666' }}>最大载重</div>
-                  <div style={{ fontWeight: 600 }}>{loadRecord.maxWeight} kg</div>
+                  <div style={{ fontSize: 12, color: '#666' }}>限重</div>
+                  <div style={{ fontWeight: 600 }}>{loadRecord.weightLimit} kg</div>
                 </Col>
               </Row>
             </div>
@@ -490,7 +485,7 @@ function UldList() {
                   optionFilterProp="label"
                   options={waybillOptions.map((w) => ({
                     value: w.id,
-                    label: `${w.waybillNo} - ${w.weight}kg - ${w.shipper} → ${w.consignee}`
+                    label: `${w.waybillNo} - ${w.weight}kg - ${w.shipper} → ${w.consignee} (${getWaybillDisplayStatus(w).text})`
                   }))}
                 />
               </Form.Item>
@@ -503,7 +498,7 @@ function UldList() {
       </Modal>
 
       <Modal
-        title={unloadRecord ? `卸下货邮单 - ${unloadRecord.uldNo}` : '卸下货邮单'}
+        title={unloadRecord ? `卸下货邮单 - ${unloadRecord.uldCode}` : '卸下货邮单'}
         open={unloadModal.open}
         onCancel={() => setUnloadModal({ open: false, record: null })}
         onOk={handleUnload}
@@ -527,7 +522,7 @@ function UldList() {
                 optionFilterProp="label"
                 options={uldWaybills.map((w) => ({
                   value: w.id,
-                  label: `${w.waybillNo} - ${w.weight}kg - ${w.status}`
+                  label: `${w.waybillNo} - ${w.weight}kg (${getWaybillDisplayStatus(w).text})`
                 }))}
               />
             </Form.Item>
