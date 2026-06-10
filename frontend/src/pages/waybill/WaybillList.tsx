@@ -278,11 +278,11 @@ function WaybillList() {
             <Descriptions.Item label="安检备注" span={2}>
               {r.securityRemark || '-'}
             </Descriptions.Item>
+            <Descriptions.Item label="说明备注" span={2}>
+              {r.remark || '-'}
+            </Descriptions.Item>
             <Descriptions.Item label="创建时间" span={2}>
               {dayjs(r.createdAt).format('YYYY-MM-DD HH:mm:ss')}
-            </Descriptions.Item>
-            <Descriptions.Item label="备注" span={2}>
-              {r.securityRemark || '-'}
             </Descriptions.Item>
           </Descriptions>
         )}

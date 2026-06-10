@@ -20,13 +20,15 @@ import {
   ArrowLeftOutlined,
   ImportOutlined,
   ExportOutlined,
-  AuditOutlined
+  AuditOutlined,
+  FileExcelOutlined
 } from '@ant-design/icons'
 import { useParams, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { getUldDetail, loadUld, unloadUld, submitReview } from '@/api/uld'
 import { getWaybillList } from '@/api/waybill'
-import type { UldDetailVO, Waybill } from '@/types'
+import { exportUldReport, downloadFile } from '@/api/export'
+import type { UldDetailVO, Waybill, ReviewRecordVO } from '@/types'
 import { getUldDisplayStatus, getWaybillDisplayStatus } from '@/types'
 
 function UldDetail() {
@@ -164,6 +166,21 @@ function UldDetail() {
         }
       }
     })
+  }
+
+  const handleExportReport = async () => {
+    if (!detail) return
+    try {
+      const res = await exportUldReport(detail.id)
+      const blob = new Blob([res as any], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      })
+      const fileName = `板箱复核报告_${detail.uldCode}_${dayjs().format('YYYYMMDDHHmmss')}.xlsx`
+      downloadFile(blob, fileName)
+      message.success('导出成功')
+    } catch (e) {
+      message.error('导出失败')
+    }
   }
 
   const waybills = detail?.waybills || []
@@ -326,6 +343,14 @@ function UldDetail() {
                   提交复核
                 </Button>
               )}
+              <Button
+                icon={<FileExcelOutlined />}
+                onClick={handleExportReport}
+                type="primary"
+                style={{ background: '#52c41a', borderColor: '#52c41a' }}
+              >
+                导出报表
+              </Button>
             </Space>
           </>
         )}
@@ -369,6 +394,11 @@ function UldDetail() {
                     scroll={{ x: 1000 }}
                   />
                 )
+            },
+            {
+              key: 'reviewRecords',
+              label: `审核结论 (${(detail?.reviewRecords || []).length})`,
+              children: <ReviewRecordsTable records={detail?.reviewRecords || []} />
             }
           ]}
         />
@@ -440,6 +470,101 @@ function UldDetail() {
         </Form>
       </Modal>
     </div>
+  )
+}
+
+const ReviewRecordsTable: React.FC<{ records: ReviewRecordVO[] }> = ({ records }) => {
+  if (records.length === 0) {
+    return (
+      <div style={{ padding: 40 }}>
+        <Empty description="暂无审核记录" />
+      </div>
+    )
+  }
+
+  const columns = [
+    {
+      title: '时间',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
+      width: 170,
+      render: (val: string) => dayjs(val).format('YYYY-MM-DD HH:mm:ss')
+    },
+    {
+      title: '操作类型',
+      dataIndex: 'reviewTypeName',
+      key: 'reviewTypeName',
+      width: 100,
+      render: (val: string, record: ReviewRecordVO) => {
+        let color = '#1890ff'
+        if (val === '复核通过') color = '#52c41a'
+        if (val === '复核退回') color = '#ff4d4f'
+        if (val === '提交复核') color = '#722ed1'
+        return <Tag color={color}>{val}</Tag>
+      }
+    },
+    {
+      title: '操作人',
+      dataIndex: 'reviewerName',
+      key: 'reviewerName',
+      width: 100
+    },
+    {
+      title: '理论重量(kg)',
+      dataIndex: 'expectedWeight',
+      key: 'expectedWeight',
+      width: 120,
+      render: (val?: number) => val?.toFixed(2) || '-'
+    },
+    {
+      title: '实际重量(kg)',
+      dataIndex: 'actualWeight',
+      key: 'actualWeight',
+      width: 120,
+      render: (val?: number) => val?.toFixed(2) || '-'
+    },
+    {
+      title: '重量差(kg)',
+      dataIndex: 'weightDiff',
+      key: 'weightDiff',
+      width: 120,
+      render: (val?: number) => {
+        if (val === undefined || val === null) return '-'
+        const color = Math.abs(val) > 5 ? '#ff4d4f' : '#52c41a'
+        return <span style={{ color, fontWeight: 600 }}>{val.toFixed(2)}</span>
+      }
+    },
+    {
+      title: '退回原因',
+      dataIndex: 'rejectReason',
+      key: 'rejectReason',
+      ellipsis: true,
+      render: (val?: string) => val || '-'
+    },
+    {
+      title: '解锁至状态',
+      dataIndex: 'unlockToStatus',
+      key: 'unlockToStatus',
+      width: 110,
+      render: (val?: string) => val || '-'
+    },
+    {
+      title: '备注',
+      dataIndex: 'remark',
+      key: 'remark',
+      ellipsis: true,
+      render: (val?: string) => val || '-'
+    }
+  ]
+
+  return (
+    <Table
+      columns={columns}
+      dataSource={records}
+      rowKey="id"
+      pagination={{ pageSize: 10, showSizeChanger: false }}
+      scroll={{ x: 1000 }}
+    />
   )
 }
 

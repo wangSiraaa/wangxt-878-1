@@ -75,9 +75,27 @@ export interface Waybill {
   currentUldId?: number
   currentUldCode?: string
   locked?: boolean
+  remark?: string
   createdByName?: string
   createdAt: string
   updatedAt: string
+}
+
+export interface ReviewRecordVO {
+  id: number
+  uldId: number
+  uldCode: string
+  reviewType: string
+  reviewTypeName: string
+  expectedWeight?: number
+  actualWeight?: number
+  weightDiff?: number
+  reviewerId?: number
+  reviewerName?: string
+  rejectReason?: string
+  unlockToStatus?: string
+  remark?: string
+  createdAt: string
 }
 
 export interface Uld {
@@ -102,6 +120,7 @@ export interface Uld {
 
 export interface UldDetailVO extends Uld {
   waybills: Waybill[]
+  reviewRecords: ReviewRecordVO[]
 }
 
 export interface LoadRecord {

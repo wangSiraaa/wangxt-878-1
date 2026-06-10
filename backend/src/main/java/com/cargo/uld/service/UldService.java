@@ -2,14 +2,17 @@ package com.cargo.uld.service;
 
 import com.cargo.uld.common.BusinessException;
 import com.cargo.uld.common.PageResult;
+import com.cargo.uld.dto.ReviewRecordVO;
 import com.cargo.uld.dto.UldDetailVO;
 import com.cargo.uld.dto.UldRequest;
 import com.cargo.uld.dto.WaybillVO;
 import com.cargo.uld.entity.Flight;
+import com.cargo.uld.entity.ReviewRecord;
 import com.cargo.uld.entity.Uld;
 import com.cargo.uld.entity.User;
 import com.cargo.uld.entity.Waybill;
 import com.cargo.uld.repository.FlightRepository;
+import com.cargo.uld.repository.ReviewRecordRepository;
 import com.cargo.uld.repository.UldRepository;
 import com.cargo.uld.repository.UserRepository;
 import com.cargo.uld.repository.WaybillRepository;
@@ -35,6 +38,7 @@ public class UldService {
     private final FlightRepository flightRepository;
     private final WaybillRepository waybillRepository;
     private final UserRepository userRepository;
+    private final ReviewRecordRepository reviewRecordRepository;
 
     public PageResult<UldDetailVO> queryPage(String uldCode, Long flightId, String reviewStatus, Pageable pageable) {
         Specification<Uld> spec = (root, query, cb) -> {
@@ -84,6 +88,13 @@ public class UldService {
                 .map(this::toWaybillVO)
                 .collect(Collectors.toList());
         vo.setWaybills(waybillVOList);
+
+        List<ReviewRecord> reviewRecords = reviewRecordRepository.findByUldIdOrderByCreatedAtDesc(id);
+        List<ReviewRecordVO> reviewRecordVOList = reviewRecords.stream()
+                .map(this::toReviewRecordVO)
+                .collect(Collectors.toList());
+        vo.setReviewRecords(reviewRecordVOList);
+
         return vo;
     }
 
@@ -199,6 +210,7 @@ public class UldService {
         vo.setLoadedStatus(w.getLoadedStatus());
         vo.setCurrentUldId(w.getCurrentUldId());
         vo.setLocked(w.getLocked());
+        vo.setRemark(w.getRemark());
         vo.setCreatedAt(w.getCreatedAt());
         vo.setUpdatedAt(w.getUpdatedAt());
         if (w.getFlightId() != null) {
@@ -212,6 +224,35 @@ public class UldService {
         }
         if (w.getCreatedBy() != null) {
             userRepository.findById(w.getCreatedBy()).ifPresent(u -> vo.setCreatedByName(u.getRealName()));
+        }
+        return vo;
+    }
+
+    private ReviewRecordVO toReviewRecordVO(ReviewRecord r) {
+        ReviewRecordVO vo = new ReviewRecordVO();
+        vo.setId(r.getId());
+        vo.setUldId(r.getUldId());
+        vo.setReviewType(r.getReviewType());
+        vo.setExpectedWeight(r.getExpectedWeight());
+        vo.setActualWeight(r.getActualWeight());
+        vo.setWeightDiff(r.getWeightDiff());
+        vo.setReviewerId(r.getReviewerId());
+        vo.setRejectReason(r.getRejectReason());
+        vo.setUnlockToStatus(r.getUnlockToStatus());
+        vo.setRemark(r.getRemark());
+        vo.setCreatedAt(r.getCreatedAt());
+
+        if (ReviewRecord.ReviewType.SUBMIT.equals(r.getReviewType())) {
+            vo.setReviewTypeName("提交复核");
+        } else if (ReviewRecord.ReviewType.PASS.equals(r.getReviewType())) {
+            vo.setReviewTypeName("复核通过");
+        } else if (ReviewRecord.ReviewType.REJECT.equals(r.getReviewType())) {
+            vo.setReviewTypeName("复核退回");
+        }
+
+        uldRepository.findById(r.getUldId()).ifPresent(u -> vo.setUldCode(u.getUldCode()));
+        if (r.getReviewerId() != null) {
+            userRepository.findById(r.getReviewerId()).ifPresent(u -> vo.setReviewerName(u.getRealName()));
         }
         return vo;
     }

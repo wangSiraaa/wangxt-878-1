@@ -22,4 +22,5 @@ public class WaybillRequest {
     private String goodsDescription;
     private Boolean dangerousFlag = false;
     private String dangerousLevel;
+    private String remark;
 }

@@ -67,6 +67,9 @@ public class Waybill {
     @Column(name = "locked")
     private Boolean locked = false;
 
+    @Column(name = "remark", length = 1000)
+    private String remark;
+
     @Column(name = "created_by", nullable = false)
     private Long createdBy;
 

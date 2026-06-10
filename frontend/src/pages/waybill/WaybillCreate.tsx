@@ -207,6 +207,15 @@ function WaybillCreate() {
               </Col>
             </Row>
 
+            <Form.Item label="说明备注" name="remark">
+              <Input.TextArea
+                rows={3}
+                placeholder="请输入货邮单相关说明（如特殊处理要求、注意事项等）"
+                maxLength={1000}
+                showCount
+              />
+            </Form.Item>
+
             <Form.Item style={{ marginTop: 24 }}>
               <Space>
                 <Button

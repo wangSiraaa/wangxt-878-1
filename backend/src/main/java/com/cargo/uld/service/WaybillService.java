@@ -86,6 +86,7 @@ public class WaybillService {
         waybill.setGoodsDescription(request.getGoodsDescription());
         waybill.setDangerousFlag(request.getDangerousFlag() != null ? request.getDangerousFlag() : false);
         waybill.setDangerousLevel(request.getDangerousLevel());
+        waybill.setRemark(request.getRemark());
         waybill.setCreatedBy(SecurityUtil.getCurrentUserId());
         return waybillRepository.save(waybill);
     }
@@ -122,6 +123,7 @@ public class WaybillService {
         waybill.setGoodsDescription(request.getGoodsDescription());
         waybill.setDangerousFlag(request.getDangerousFlag() != null ? request.getDangerousFlag() : false);
         waybill.setDangerousLevel(request.getDangerousLevel());
+        waybill.setRemark(request.getRemark());
         return waybillRepository.save(waybill);
     }
 
@@ -201,6 +203,7 @@ public class WaybillService {
         vo.setLoadedStatus(w.getLoadedStatus());
         vo.setCurrentUldId(w.getCurrentUldId());
         vo.setLocked(w.getLocked());
+        vo.setRemark(w.getRemark());
         vo.setCreatedAt(w.getCreatedAt());
         vo.setUpdatedAt(w.getUpdatedAt());
 

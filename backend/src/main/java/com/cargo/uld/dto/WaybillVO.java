@@ -32,6 +32,7 @@ public class WaybillVO {
     private Long currentUldId;
     private String currentUldCode;
     private Boolean locked;
+    private String remark;
     private String createdByName;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

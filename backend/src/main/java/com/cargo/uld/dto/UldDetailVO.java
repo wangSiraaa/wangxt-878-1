@@ -27,4 +27,5 @@ public class UldDetailVO {
     private LocalDateTime reviewedAt;
     private BigDecimal usedRatio;
     private List<WaybillVO> waybills;
+    private List<ReviewRecordVO> reviewRecords;
 }
